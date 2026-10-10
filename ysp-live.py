@@ -38,7 +38,7 @@ try:
 except ImportError:
     _HAS_EPG = False
     EpgAggregator = None
-__version__ ='9.0.0'
+__version__ ='9.0.0-sure155'
 AK ='9f5c54c4ed0e50109b800f7e28fec205'
 RSA_PUBLIC_KEY_B64 ='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkKeLy4ywWLSnBkwRyqYgF3HMIj05V5uuh5HjyEsZOWnu1NHu3jPQv3sr32wwQNYv5qapsNXmNgLUDHtgHZxqPQAYXltjSRc0qhcD286t62wOIHId8zXS3s1Jy4rgU4qjQWzI9rp/1sE0pMsmwTaJa4zuJ5iz8VwF8Av5oJ1k+HxY+/HLnjNlW1hmWLpuDYmkZYuAoTHa1VGeHQh9FEKI8ZcL3GTQphShUoC+Kg3P1hGUVTtCYapmzPS5lkAdwebuzwvTCfGiTErYZCnPBUSeV7BVlgjtLYIi29KvF0a8FHsJMfe/UdHcyW/RihsIYOtDQcRRpFGXyPXbVrzFJse24QIDAQAB'
 CLOUD_GET_URL ='https://ytpcloudws.cctv.cn/cloudps/wssapi/device/v2/get'
@@ -2930,7 +2930,7 @@ def fetch_upstream_engine_playlist (canonical :str ,host :str )->str |None :
             pass 
     return None 
 class Handler (BaseHTTPRequestHandler ):
-    server_version ='ysp-live/9.0.0'
+    server_version ='ysp-live/9.0.0-sure155'
     def log_message (self ,fmt ,*args ):
         pass 
     def _send (self ,code ,body ,ctype ='text/plain; charset=utf-8',head_only =False ,extra_headers =None ):
@@ -2977,7 +2977,7 @@ class Handler (BaseHTTPRequestHandler ):
             cache_info =global_ts_cache .stats ()
             health_data ={
             "ok":True ,
-            "version":"9.0.0",
+            "version":"9.0.0-sure155",
             "uptime_sec":int (now -server_start_time ),
             "engine":{
             "ready":engine_ready ,
