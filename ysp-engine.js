@@ -3,7 +3,7 @@ const https = require('https');
 const crypto = require('crypto');
 const url = require('url');
 
-const VERSION = '9.0.0';
+const VERSION = '9.0.0-sure155';
 const PORT = parseInt(process.env.YSP_ENGINE_PORT || process.env.PORT || process.argv[2] || '8787', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
@@ -224,6 +224,135 @@ function buildCKey(cnlid, ts, guid) {
   return '--01' + enc.toString('hex').toUpperCase();
 }
 
+
+// --- 新增：全局请求拦截，伪造国内中国移动 IP (可通过 FAKE_IP 环境变量覆盖，设 FAKE_IP=off 关闭) ---
+const FAKE_IP = process.env.FAKE_IP && process.env.FAKE_IP !== 'off' ? process.env.FAKE_IP : '39.137.100.1';
+function injectFakeIpHeaders(headers) {
+  if (FAKE_IP === 'off') return headers;
+  if (headers instanceof Headers) {
+    headers.set('X-Forwarded-For', FAKE_IP);
+    headers.set('Client-IP', FAKE_IP);
+  } else {
+    const h = { ...(headers || {}) };
+    h['X-Forwarded-For'] = FAKE_IP;
+    h['Client-IP'] = FAKE_IP;
+    return h;
+  }
+  return headers;
+}
+// 拦截 global fetch (覆盖所有 Node 内置/扩展的 fetch 调用)
+if (globalThis.fetch) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    const headers = injectFakeIpHeaders(options.headers || {});
+    return originalFetch(url, { ...options, headers });
+  };
+}
+// --- 代理支持 (方案二：Tailscale/本地代理引流回国, 支持 HTTPS_PROXY / HTTP_PROXY 环境变量) ---
+const PROXY_URL = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || '';
+function proxyAuthHeader() {
+  try {
+    const pu = new url.URL(PROXY_URL);
+    if (pu.username) return 'Basic ' + Buffer.from(decodeURIComponent(pu.username) + ':' + decodeURIComponent(pu.password || '')).toString('base64');
+  } catch (e) {}
+  return null;
+}
+function connectProxy(targetUrl) {
+  const pu = new url.URL(PROXY_URL);
+  const tu = new url.URL(targetUrl);
+  const tunnelHost = tu.hostname + ':' + (tu.port || (tu.protocol === 'https:' ? '443' : '80'));
+  return new Promise((resolve, reject) => {
+    const pr = http.request({
+      host: pu.hostname, port: parseInt(pu.port || '1080', 10),
+      method: 'CONNECT',
+      path: tunnelHost,
+      headers: { 'Proxy-Authorization': proxyAuthHeader() || '' }
+    });
+    pr.on('connect', (code, res, socket) => {
+      if (code !== 200) { socket.destroy(); reject(new Error('proxy CONNECT ' + code)); return; }
+      resolve(socket);
+    });
+    pr.on('error', reject);
+    pr.end();
+  });
+}
+function tlsOver(socket, serverName) {
+  const tls = require('tls');
+  return new Promise((resolve, reject) => {
+    const tlsSocket = tls.connect({ socket, servername: serverName, rejectUnauthorized: false });
+    tlsSocket.once('secureConnect', () => resolve(tlsSocket));
+    tlsSocket.once('error', reject);
+  });
+}
+async function proxiedRequest(targetUrl, reqHeaders, method, body) {
+  const tu = new url.URL(targetUrl);
+  const headers = { ...reqHeaders, host: tu.hostname };
+  let socket;
+  if (tu.protocol === 'https:') {
+    socket = await connectProxy(targetUrl);
+    socket = await tlsOver(socket, tu.hostname);
+  } else {
+    // HTTP 走 HTTP 代理: 直连代理端口, 请求行用绝对 URI
+    const pu = new url.URL(PROXY_URL);
+    socket = await new Promise((resolve, reject) => {
+      const s = require('net').connect({ host: pu.hostname, port: parseInt(pu.port || '8080', 10) }, () => resolve(s));
+      s.on('error', reject);
+    });
+  }
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    const data = [];
+    let headParsed = false;
+    let status = 0;
+    const resHeaders = {};
+    function onData(chunk) {
+      if (!headParsed) {
+        raw += chunk.toString('binary');
+        const idx = raw.indexOf('\r\n\r\n');
+        if (idx === -1) return;
+        const headStr = raw.slice(0, idx);
+        const rest = Buffer.from(raw.slice(idx + 4), 'binary');
+        raw = '';
+        headParsed = true;
+        const lines = headStr.split('\r\n');
+        const statusLine = lines[0].split(' ');
+        status = parseInt(statusLine[1], 10);
+        for (const l of lines.slice(1)) {
+          const k = l.indexOf(':');
+          if (k > 0) resHeaders[l.slice(0, k).trim().toLowerCase()] = l.slice(k + 1).trim();
+        }
+        if (rest.length) data.push(rest);
+      } else {
+        data.push(chunk);
+      }
+    }
+    function sendReq() {
+      let reqStr = method + ' ' + (tu.protocol === 'https:' ? tu.pathname + tu.search : tu.href) + ' HTTP/1.1\r\n' +
+        Object.keys(headers).map(k => k + ': ' + headers[k]).join('\r\n');
+      if (method === 'POST' && body) {
+        reqStr += '\r\ncontent-length: ' + Buffer.byteLength(body);
+      }
+      reqStr += '\r\n\r\n';
+      socket.write(reqStr);
+      if (method === 'POST' && body) socket.write(body);
+      socket.end();
+    }
+    if (tu.protocol === 'https:') {
+      sendReq();
+    } else {
+      // HTTP 走代理: 用绝对 URI, 且需要 CONNECT 隧道已建立 (socks5 不支持)
+      sendReq();
+    }
+    socket.on('data', onData);
+    socket.on('end', () => {
+      const buf = Buffer.concat(data);
+      resolve({ statusCode: status, headers: resHeaders, data: buf.toString('utf8') });
+    });
+    socket.on('error', reject);
+  });
+}
+// -----------------------------------------------------
+
 const httpsAgent = new https.Agent({
   keepAlive: true,
   maxSockets: 64,
@@ -240,21 +369,27 @@ const httpAgent = new http.Agent({
 });
 
 function httpPost(targetUrl, headers, body) {
+  const h = injectFakeIpHeaders(headers);
   return new Promise((resolve, reject) => {
     const u = new url.URL(targetUrl);
+    const resHandler = res => {
+      const chunks = [];
+      res.on('data', d => chunks.push(d));
+      res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, data: Buffer.concat(chunks).toString('utf8') }));
+    };
+    if (PROXY_URL && targetUrl.startsWith('https:')) {
+      proxiedRequest(targetUrl, h, 'POST', body).then(resolve, reject);
+      return;
+    }
     const req = https.request({
       protocol: u.protocol,
       hostname: u.hostname,
       path: u.pathname + u.search,
       method: 'POST',
-      headers: { ...headers, 'content-length': Buffer.byteLength(body) },
+      headers: { ...h, 'content-length': Buffer.byteLength(body) },
       agent: httpsAgent,
       timeout: 10000
-    }, res => {
-      const chunks = [];
-      res.on('data', d => chunks.push(d));
-      res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, data: Buffer.concat(chunks).toString('utf8') }));
-    });
+    }, resHandler);
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
     req.write(body);
@@ -264,7 +399,7 @@ function httpPost(targetUrl, headers, body) {
 
 function httpGet(targetUrl, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = https.get(targetUrl, { headers, agent: httpsAgent, timeout: 10000 }, res => {
+    const req = https.get(targetUrl, { headers: injectFakeIpHeaders(headers), agent: httpsAgent, timeout: 10000 }, res => {
       const chunks = [];
       res.on('data', d => chunks.push(d));
       res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, data: Buffer.concat(chunks).toString('utf8') }));
@@ -278,7 +413,7 @@ function httpGetBuffer(targetUrl, headers = {}) {
   return new Promise((resolve, reject) => {
     const isHttps = targetUrl.startsWith('https:');
     const client = isHttps ? https : http;
-    const req = client.get(targetUrl, { headers, agent: isHttps ? httpsAgent : httpAgent, timeout: 15000 }, res => {
+    const req = client.get(targetUrl, { headers: injectFakeIpHeaders(headers), agent: isHttps ? httpsAgent : httpAgent, timeout: 15000 }, res => {
       const chunks = [];
       res.on('data', d => chunks.push(d));
       res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, buffer: Buffer.concat(chunks) }));
@@ -417,6 +552,10 @@ async function resolveChannelLive(slug) {
       let fullSegUrl = trimmed;
       if (!fullSegUrl.startsWith('http://') && !fullSegUrl.startsWith('https://')) {
         fullSegUrl = new url.URL(trimmed, playurl).toString();
+      }
+      // 方案三：强制替换 CDN 域名 (CDN_REPLACE=域名 开启, 如 CDN_REPLACE=hc-cdn.ysp.cctv.cn)
+      if (process.env.CDN_REPLACE) {
+        fullSegUrl = fullSegUrl.replace(/:\/\/[^/]+/, '://' + process.env.CDN_REPLACE);
       }
       outLines.push('http://127.0.0.1:' + PORT + '/segment?url=' + encodeURIComponent(fullSegUrl));
     }

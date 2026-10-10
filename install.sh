@@ -2,7 +2,7 @@
 # ysp-live v9.0 一键部署脚本
 set -e
 cd /opt
-curl -sSL -o v9.0.zip "https://github.com/waastudios/ysptp-docker/releases/download/v9.0/ysp-live-docker-v9.0.zip"
+curl -sSL -o v9.0.zip "https://github.com/sure155/ysptp-docker/releases/download/v9.0/ysp-live-docker-v9.0.zip"
 python3 -c "import zipfile;zipfile.ZipFile('v9.0.zip').extractall('/opt/ysp-live-docker')"
 cd /opt/ysp-live-docker
 # 清理可能残留的旧容器（避免容器名冲突）

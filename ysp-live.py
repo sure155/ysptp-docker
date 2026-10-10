@@ -2382,6 +2382,40 @@ DEFAULT_CHANNELS =[('cctv1','CCTV-1 综合','2024078201','600001859','fhd'),
 ('cctvfyjc','CCTV 风云剧场','2025637102','600099658','shd'),
 ('cctvdyjc','CCTV 第一剧场','2026874202','600099655','shd'),
 ('cctvhjjc','CCTV 怀旧剧场','2026874302','600099620','shd'),
+('bjws','北京卫视','2024052703','600002309','fhd'),
+('dfws','东方卫视','2024054503','600002483','fhd'),
+('jsws','江苏卫视','2024171103','600002521','fhd'),
+('zjws','浙江卫视','2024054703','600002520','fhd'),
+('hnws','湖南卫视','2024054803','600002475','fhd'),
+('hbws','湖北卫视','2024171203','600002508','fhd'),
+('gdws','广东卫视','2024060903','600002485','fhd'),
+('gxws','广西卫视','2024060703','600002509','fhd'),
+('hljws','黑龙江卫视','2029797003','600002498','fhd'),
+('hainanws','海南卫视','2024055603','600002506','fhd'),
+('cqws','重庆卫视','2024061103','600002531','fhd'),
+('szws','深圳卫视','2024061303','600002481','fhd'),
+('scws','四川卫视','2024061403','600002516','fhd'),
+('henanws','河南卫视','2029797303','600002525','fhd'),
+('dnws','东南卫视','2024061503','600002484','fhd'),
+('gzws','贵州卫视','2024061603','600002490','fhd'),
+('jxws','江西卫视','2024061703','600002503','fhd'),
+('lnws','辽宁卫视','2024171303','600002505','fhd'),
+('ahws','安徽卫视','2024171403','600002532','fhd'),
+('hebws','河北卫视','2024171503','600002493','fhd'),
+('sdws','山东卫视','2029787903','600002513','fhd'),
+('tjws','天津卫视','2019927003','600152137','fhd'),
+('jlws','吉林卫视','2025561503','600190405','fhd'),
+('saxws','陕西卫视','2029795103','600190400','fhd'),
+('nxws','宁夏卫视','2025608503','600190737','fhd'),
+('nmgws','内蒙古卫视','2025561203','600190401','fhd'),
+('ynws','云南卫视','2025561303','600190402','fhd'),
+('shanxiws','山西卫视','2025560803','600190407','fhd'),
+('gsws','甘肃卫视','2025561703','600190408','fhd'),
+('qhws','青海卫视','2025559103','600190406','fhd'),
+('xizangws','西藏卫视','2025558003','600190403','fhd'),
+('xjws','新疆卫视','2019927403','600152138','fhd'),
+('cetv1','CETV-1','2022823801','600171827','fhd'),
+('guoxue','国学频道','2029360403','600213139','fhd'),
 ]
 ALIAS_MAP ={
 'anhuiws':'ahws','beijingws':'bjws','cctv16hd':'cctv16','cctv5plus':'cctv5p',
@@ -2411,8 +2445,8 @@ TVG_IDS ={
 'gzws':'贵州卫视','jxws':'江西卫视','lnws':'辽宁卫视','ahws':'安徽卫视',
 'hebws':'河北卫视','sdws':'山东卫视','tjws':'天津卫视','jlws':'吉林卫视',
 'saxws':'陕西卫视','nxws':'宁夏卫视','nmgws':'内蒙古卫视','ynws':'云南卫视',
-'shanxiws':'山西卫视','qhws':'青海卫视','xizangws':'西藏卫视','xjws':'新疆卫视',
-'gsws':'甘肃卫视','guoxue':'国学'
+'shanxiws':'山西卫视','gsws':'甘肃卫视','qhws':'青海卫视','xizangws':'西藏卫视',
+'xjws':'新疆卫视','cetv1':'CETV1','guoxue':'国学'
 }
 LOGO_BASE ='https://garysclub.sharewithyou.dpdns.org/logos/ysp-live-logos'
 UA ='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
@@ -2425,12 +2459,19 @@ BACKEND_CHANNELS ={
 'cctv1','cctv2','cctv3','cctv4','cctv5','cctv5p','cctv7','cctv8',
 'cctv9','cctv10','cctv11','cctv12','cctv13','cctv14','cctv15',
 'cctv16','cctv17','cctv4k','cctv8k','cctv164k','cgtn','cgtnfr',
-'cgtnru','cgtnar','cgtnes','cgtndoc'
+'cgtnru','cgtnar','cgtnes','cgtndoc',
+'bjws','dfws','jsws','zjws','hnws','hbws','gdws','gxws',
+'hljws','hainanws','cqws','szws','scws','henanws','dnws','gzws',
+'jxws','lnws','ahws','hebws','sdws','tjws','jlws','saxws',
+'nxws','nmgws','ynws','shanxiws','gsws','qhws','xizangws','xjws',
+'cetv1','guoxue'
 }
 TRUE_4K_CHANNELS ={'cctv4k','cctv8k','cctv164k'}
 active_backend_channels =set (BACKEND_CHANNELS )
 TIMESHIFT_SUPPORTED ={
-"cctv1","cctv2","cctv3","cctv4","cctv5","cctv5p","cctv6","cctv7","cctv8","cctv9","cctv10","cctv13","cctv8k","cgtn","cgtnfr","cgtnru","cgtnar","cgtnes","cgtndoc"
+"cctv1","cctv2","cctv3","cctv4","cctv5","cctv5p","cctv6","cctv7","cctv8","cctv9","cctv10","cctv13","cctv8k","cgtn","cgtnfr","cgtnru","cgtnar","cgtnes","cgtndoc",
+"bjws","dfws","jsws","zjws","hnws","hbws","gdws","gxws","hljws","hainanws","cqws","szws","scws","henanws","dnws","gzws",
+"jxws","lnws","ahws","hebws","sdws","tjws","jlws","saxws","nxws","nmgws","ynws","shanxiws","gsws","qhws","xizangws","xjws","cetv1","guoxue"
 }
 def get_channel_group (slug :str )->str :
     s =ALIAS_MAP .get (slug .lower (),slug .lower ())
@@ -2825,7 +2866,11 @@ def trigger_background_refresh (ch ):
             build_playlist (ch ,holdback =True )
     threading .Thread (target =coalesce_refresh ,args =(ch .slug ,_do ),daemon =True ).start ()
 CHANNEL_MAP :dict [str ,Channel ]={c [0 ]:Channel (*c )for c in DEFAULT_CHANNELS }
-FORCE_BK ={'cctv11','cctv12','cctv14','cctv15','cctv16','cctv17','cctvfyjc','cctvdyjc','cctvhjjc'}
+FORCE_BK ={'cctv11','cctv12','cctv14','cctv15','cctv16','cctv17','cctvfyjc','cctvdyjc','cctvhjjc',
+'bjws','dfws','jsws','zjws','hnws','hbws','gdws','gxws','hljws','hainanws','cqws','szws','scws','henanws','dnws','gzws',
+'jxws','lnws','ahws','hebws','sdws','tjws','jlws','saxws','nxws','nmgws','ynws','shanxiws','gsws','qhws','xizangws','xjws',
+'cetv1','guoxue'
+}
 for _s in FORCE_BK :
     if _s in CHANNEL_MAP :
         CHANNEL_MAP [_s ].mode ='bk'
