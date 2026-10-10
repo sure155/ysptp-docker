@@ -7,7 +7,7 @@ services:
     container_name: ysp-live
     restart: unless-stopped
     ports:
-      - "8767:8767"
+      - "8770:8767"
     volumes:
       - ./data:/app/data
     environment:

@@ -19,8 +19,8 @@ docker compose up -d --build
 IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 echo ""
 echo "ysp-live 已部署完毕"
-echo "订阅地址: http://$IP:8767/cctv.m3u"
-echo "节目单订阅: http://$IP:8767/epg.xml"
-echo "实时诊断: http://$IP:8767/diag"
+echo "订阅地址: http://$IP:8770/cctv.m3u"
+echo "节目单订阅: http://$IP:8770/epg.xml"
+echo "实时诊断: http://$IP:8770/diag"
 echo "查看日志: docker logs -f ysp-live"
 
