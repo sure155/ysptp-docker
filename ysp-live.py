@@ -3129,7 +3129,7 @@ class Handler (BaseHTTPRequestHandler ):
                 if is_https :
                     conn =http .client .HTTPSConnection (host ,port ,timeout =20 ,context =ssl .create_default_context ())
                 else :
-                    conn =http .client .HTTPConnection (host ,port ,timeout =20 ,keep_alive =True )
+                    conn =http .client .HTTPConnection (host ,port ,timeout =20 )
                 try :
                     req_method ='HEAD'if head_only else 'GET'
                     conn .request (req_method ,target ,headers =headers )
