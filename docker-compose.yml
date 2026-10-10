@@ -1,12 +1,11 @@
 services:
   ysp-live:
-    image: ysp-live:9.1
+    image: ysp-live:9.0
     build:
       context: .
       dockerfile: Dockerfile
     container_name: ysp-live
     restart: unless-stopped
-    init: true
     ports:
       - "8770:8767"
     volumes:
@@ -15,4 +14,3 @@ services:
       - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
       - YSP_DATA_DIR=/app/data
-      - YSP_MAX_CACHE_SEGMENT_MB=8

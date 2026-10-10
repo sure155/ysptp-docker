@@ -38,7 +38,7 @@ try:
 except ImportError:
     _HAS_EPG = False
     EpgAggregator = None
-__version__ ='9.1.0-stream-optimized'
+__version__ ='9.0.0-sure155'
 AK ='9f5c54c4ed0e50109b800f7e28fec205'
 RSA_PUBLIC_KEY_B64 ='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkKeLy4ywWLSnBkwRyqYgF3HMIj05V5uuh5HjyEsZOWnu1NHu3jPQv3sr32wwQNYv5qapsNXmNgLUDHtgHZxqPQAYXltjSRc0qhcD286t62wOIHId8zXS3s1Jy4rgU4qjQWzI9rp/1sE0pMsmwTaJa4zuJ5iz8VwF8Av5oJ1k+HxY+/HLnjNlW1hmWLpuDYmkZYuAoTHa1VGeHQh9FEKI8ZcL3GTQphShUoC+Kg3P1hGUVTtCYapmzPS5lkAdwebuzwvTCfGiTErYZCnPBUSeV7BVlgjtLYIi29KvF0a8FHsJMfe/UdHcyW/RihsIYOtDQcRRpFGXyPXbVrzFJse24QIDAQAB'
 CLOUD_GET_URL ='https://ytpcloudws.cctv.cn/cloudps/wssapi/device/v2/get'
@@ -2577,9 +2577,9 @@ class ApiFlowLimiter :
             self .last_call =time .time ()
 global_flow_limiter =ApiFlowLimiter ()
 class TsSegmentCache :
-    def __init__ (self ,max_mb :int =100 ,max_age_sec :int =180 ):
-        self .max_bytes =max_mb *1024 *1024 
-        self .max_age =max_age_sec 
+    def __init__ (self ,max_mb :int =500 ,max_age_sec :int =300 ):
+        self .max_bytes =max_mb *1024 *1024
+        self .max_age =max_age_sec
         self .lock =threading .Lock ()
         self .cache :dict [str ,tuple [bytes ,dict ,float ]]={}
         self .order =collections .deque ()
@@ -2626,7 +2626,7 @@ class TsSegmentCache :
             'misses':self .misses ,
             'hit_rate':f"{round (self .hits /total *100 ,1 )}%"
             }
-global_ts_cache =TsSegmentCache (max_mb =200 )
+global_ts_cache =TsSegmentCache (max_mb =500 )
 class ChannelDirectory :
     def __init__ (self ):
         self .lock =threading .Lock ()
@@ -2930,8 +2930,7 @@ def fetch_upstream_engine_playlist (canonical :str ,host :str )->str |None :
             pass 
     return None 
 class Handler (BaseHTTPRequestHandler ):
-    protocol_version = 'HTTP/1.0'
-    server_version ='ysp-live/9.1.0-stream-optimized'
+    server_version ='ysp-live/9.0.0-sure155'
     def setup(self):
         super().setup()
         try:
@@ -2984,7 +2983,7 @@ class Handler (BaseHTTPRequestHandler ):
             cache_info =global_ts_cache .stats ()
             health_data ={
             "ok":True ,
-            "version":"9.1.0-stream-optimized",
+            "version":"9.0.0-sure155",
             "uptime_sec":int (now -server_start_time ),
             "engine":{
             "ready":engine_ready ,
@@ -3052,7 +3051,7 @@ class Handler (BaseHTTPRequestHandler ):
             links_limit_cfg =getattr (resolver .args ,'links_per_device',6 )if resolver else 6 
             standby_text ='就绪'if standby else ('注册中'if getattr (resolver ,'standby_in_progress',False )else '待命')
             sess_info =f"主设备: {('有效'if sess and resolver and resolver .app_session_fresh (sess )else '未就绪')}, 配额={linked_count }/{links_limit_cfg }, 热备设备={standby_text }, 心跳次数={(sess .heartbeat_count if sess else 0 )}"
-            info .append (f"ysp-live v9.1 诊断报告 (运行时间: {int (now -server_start_time )}s)")
+            info .append (f"ysp-live v9.0 诊断报告 (运行时间: {int (now -server_start_time )}s)")
             info .append (f"设备引擎状态: {engine_status } ({sess_info })")
             info .append (f"主设备 GUID: {(sess .cloud_guid if sess else '无')}")
             if standby :
@@ -3128,9 +3127,9 @@ class Handler (BaseHTTPRequestHandler ):
                 headers =_playback_request_headers (playback_headers ,extra )
                 headers ['Host']=host_header 
                 if is_https :
-                    conn =http .client .HTTPSConnection (host ,port ,timeout =30 ,context =ssl .create_default_context ())
+                    conn =http .client .HTTPSConnection (host ,port ,timeout =20 ,context =ssl .create_default_context ())
                 else :
-                    conn =http .client .HTTPConnection (host ,port ,timeout =30 )
+                    conn =http .client .HTTPConnection (host ,port ,timeout =20 ,keep_alive =True )
                 try :
                     req_method ='HEAD'if head_only else 'GET'
                     conn .request (req_method ,target ,headers =headers )
@@ -3155,17 +3154,17 @@ class Handler (BaseHTTPRequestHandler ):
                         if cl_val :
                             try :
                                 expected_len =int (cl_val )
-                                if expected_len >int (os .environ .get ('YSP_MAX_CACHE_SEGMENT_MB','8'))*1024 *1024 :
-                                    is_oversized =True 
+                                if expected_len >15 *1024 *1024 :
+                                    is_oversized =True
                             except ValueError :
-                                pass 
+                                pass
                         while True :
                             chunk =resp .read (262144 )
                             if not chunk :
-                                break 
+                                break
                             self .wfile .write (chunk )
                             if resp .status ==200 and not is_oversized :
-                                if len (body_buffer )+len (chunk )<=int (os .environ .get ('YSP_MAX_CACHE_SEGMENT_MB','8'))*1024 *1024 :
+                                if len (body_buffer )+len (chunk )<=15 *1024 *1024 :
                                     body_buffer .extend (chunk )
                                 else :
                                     is_oversized =True 
@@ -3369,7 +3368,7 @@ except Exception :
     pass 
 def main ():
     global resolver ,server_port ,engine_port ,global_channel_dir ,global_ts_cache 
-    ap =argparse .ArgumentParser (description ='央视频全频道直播代理（ysp-live v9.1 流畅优化版）')
+    ap =argparse .ArgumentParser (description ='央视频全频道直播代理（ysp-live v9.0 旗舰单端口版）')
     ap .add_argument ('port',nargs ='?',type =int ,default =8767 ,help ='监听端口 (默认 8767)')
     ap .add_argument ('--bind',default ='0.0.0.0',help ='监听地址 (默认 0.0.0.0)')
     ap .add_argument ('--data-dir',default =os .environ .get ('YSP_DATA_DIR',''),help ='数据持久化目录 (默认由 YSP_DATA_DIR 环境变量或脚本所在目录决定)')
@@ -3428,17 +3427,13 @@ def main ():
         resolver .start_refresh_worker ()
         resolver .start_keep_warm_worker ()
         threading .Thread (target =init_resolver ,daemon =True ,name ='engine-init').start ()
-    class TunedThreadingHTTPServer(ThreadingHTTPServer):
-        request_queue_size = 256
-        daemon_threads = True
-        block_on_close = False
-    srv =TunedThreadingHTTPServer ((args .bind ,args .port ),Handler )
+    srv =ThreadingHTTPServer ((args .bind ,args .port ),Handler )
     channels_count =len (global_channel_dir .unique_channels ())
     c_fhd =len ([c for c in global_channel_dir .unique_channels ()if c ['group']=='央视FHD'])
     c_uhd =len ([c for c in global_channel_dir .unique_channels ()if c ['group']=='央视UHD'])
     c_cgtn =len ([c for c in global_channel_dir .unique_channels ()if c ['group']=='CGTN'])
     log ('====================================================================')
-    log (f'ysp-live v9.1 启动成功: {channels_count } 个独立频道 (央视FHD {c_fhd } 路, 央视UHD {c_uhd } 路, CGTN {c_cgtn } 路)')
+    log (f'ysp-live v9.0 启动成功: {channels_count } 个独立频道 (央视FHD {c_fhd } 路, 央视UHD {c_uhd } 路, CGTN {c_cgtn } 路)')
     log (f'全频道订阅:   http://localhost:{args .port }/cctv.m3u')
     log (f'节目单:       http://localhost:{args .port }/epg.xml')
     log (f'系统健康度:   http://localhost:{args .port }/health')
