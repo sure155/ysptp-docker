@@ -350,7 +350,23 @@ def normalize_channel (raw :str )->str :
         key =key [:-len ('.m3u8')]
     if key in ('cctv16-4k','cctv16_4k','cctv16/4k','cctv16(4k)'):
         return 'cctv164k'
-    return key 
+    return key
+def _with_timeout (fn ,timeout :float ,err_msg :str ='timeout'):
+    result =[None ]
+    error =[None ]
+    def wrapper ():
+        try :
+            result [0]=fn ()
+        except Exception as e :
+            error [0]=e
+    t =threading .Thread (target =wrapper ,daemon =True )
+    t .start ()
+    t .join (timeout )
+    if t .is_alive ():
+        raise TimeoutError (f'{err_msg }: operation timed out')
+    if error [0]:
+        raise error [0]
+    return result [0 ]
 @dataclasses .dataclass 
 class DeviceProfile :
     android_id :str =''
@@ -3217,7 +3233,7 @@ class Handler (BaseHTTPRequestHandler ):
                 if not resolver .is_channel_in_cooldown (canonical ):
                     try :
                         host =self .headers .get ('Host',f'localhost:{server_port }')
-                        pl =resolver .fetch_channel_playlist (canonical ,host )
+                        pl =_with_timeout (lambda :resolver .fetch_channel_playlist (canonical ,host ),timeout =10.0 ,err_msg =canonical )
                         if pl and '#EXTM3U'in pl :
                             with ch .lock :
                                 ch .last_built_playlist =''
