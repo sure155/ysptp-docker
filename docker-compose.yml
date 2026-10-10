@@ -14,3 +14,4 @@ services:
       - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
       - YSP_DATA_DIR=/app/data
+      - YSP_ONLY_4K_DEVICE=1

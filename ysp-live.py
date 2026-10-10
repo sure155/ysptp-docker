@@ -1,4 +1,6 @@
 from __future__ import annotations 
+import socket as _socket
+_socket .setdefaulttimeout (20 )
 import argparse 
 import atexit 
 import base64 
@@ -21,7 +23,7 @@ import re
 import secrets 
 import shutil 
 import signal 
-import socket 
+_socket .setdefaulttimeout (20 )
 import ssl 
 import struct 
 import sys 
@@ -2950,7 +2952,7 @@ class Handler (BaseHTTPRequestHandler ):
     def setup(self):
         super().setup()
         try:
-            self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self.connection.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
         except OSError:
             pass
     def log_message (self ,fmt ,*args ):
