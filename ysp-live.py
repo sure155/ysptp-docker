@@ -1620,7 +1620,8 @@ class Resolver :
                 continue 
             if fallback is None :
                 fallback =item 
-            if item .get ('rate')=='36p':
+            # CCTV-6 36p 流不可用导致黑屏，跳过 36p 优先选择
+            if channel != 'cctv6' and item .get ('rate')=='36p':
                 selected =item 
                 break 
         video =selected if selected is not None else fallback 
@@ -2685,7 +2686,7 @@ class Channel :
         self .thread =None 
         self .last_error =''
         self .last_ok =0.0 
-        self .mode ='jce'
+        self .mode ='bk' if slug == 'cctv6' else 'jce'
         self .last_pdt =''
         self .bk_urls =[]
         self .bk_urls_time =0.0 
