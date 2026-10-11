@@ -1,17 +1,19 @@
 services:
   ysp-live:
     image: ysp-live:9.0
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: { context: ., dockerfile: Dockerfile }
     container_name: ysp-live
     restart: unless-stopped
+    init: true
     ports:
       - "8770:8767"
     volumes:
       - ./data:/app/data
     environment:
       - TZ=Asia/Shanghai
-      - PYTHONUNBUFFERED=1
       - YSP_DATA_DIR=/app/data
       - YSP_ONLY_4K_DEVICE=1
+    mem_limit: 768m          # TS 缓存默认 200MB，加 Node 和 Python，留足余量
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
