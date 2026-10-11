@@ -2686,7 +2686,7 @@ class Channel :
         self .thread =None 
         self .last_error =''
         self .last_ok =0.0 
-        self .mode ='bk' if slug == 'cctv6' else 'jce'
+        self .mode ='jce'
         self .last_pdt =''
         self .bk_urls =[]
         self .bk_urls_time =0.0 
@@ -2821,9 +2821,6 @@ def bk_refresh (ch ):
                 pl =fetch_abs_playlist (u )
                 if '#EXTM3U'not in pl :
                     continue 
-                if ch .slug =='cctv6':
-                    bk_accumulate (ch ,pl )
-                    return True 
                 with ch .lock :
                     ch .bk_playlist =pl 
                     ch .last_error =''
@@ -3179,100 +3176,79 @@ class Handler (BaseHTTPRequestHandler ):
             except YsptpError as err :
                 self ._send (500 ,f'{err }\n',head_only =head_only )
                 return 
-            # CCTV-6: CDN fallback loop - try primary then bk URLs to avoid single-CDN stall
-            bk_urls =[]
-            if 'cctv6' in real_url :
+            try :
+                parts_url =urllib .parse .urlsplit (real_url )
+                host =parts_url .hostname
+                if not host :
+                    self ._send (400 ,'invalid ts host\n',head_only =head_only )
+                    return
+                is_https =(parts_url .scheme =='https')
+                port =parts_url .port or (443 if is_https else 80 )
+                host_header =f'{host }:{parts_url .port }'if parts_url .port else host
+                target =parts_url .path or '/'
+                if parts_url .query :
+                    target +='?'+parts_url .query
+                extra ={}
+                range_header =self .headers .get ('Range')
+                if range_header :
+                    extra ['Range']=header_value_clean (range_header )
+                headers =_playback_request_headers (playback_headers ,extra )
+                headers ['Host']=host_header
+                if is_https :
+                    conn =http .client .HTTPSConnection (host ,port ,timeout =30 ,context =ssl .create_default_context ())
+                else :
+                    conn =http .client .HTTPConnection (host ,port ,timeout =30 )
                 try :
-                    bk_urls =bk_playurls ('2013693901','600108442','fhd')
+                    req_method ='HEAD'if head_only else 'GET'
+                    conn .request (req_method ,target ,headers =headers )
+                    resp =conn .getresponse ()
+                    resp_headers_to_pass ={}
+                    for k ,v in resp .getheaders ():
+                        kl =k .lower ()
+                        if kl in ('content-type','content-range','accept-ranges','content-length'):
+                            resp_headers_to_pass [k ]=v
+                    self .send_response (resp .status )
+                    for k ,v in resp_headers_to_pass .items ():
+                        self .send_header (k ,v )
+                    self .send_header ('X-Cache','MISS-UPSTREAM')
+                    self .send_header ('Access-Control-Allow-Origin','*')
+                    self .send_header ('Cache-Control','public, max-age=300')
+                    self .end_headers ()
+                    if not head_only :
+                        body_buffer =bytearray ()
+                        is_oversized =False
+                        expected_len =None
+                        cl_val =resp_headers_to_pass .get ('Content-Length')or resp_headers_to_pass .get ('content-length')
+                        if cl_val :
+                            try :
+                                expected_len =int (cl_val )
+                                if expected_len >15 *1024 *1024 :
+                                    is_oversized =True
+                            except ValueError :
+                                pass
+                        while True :
+                            chunk =resp .read (262144 )
+                            if not chunk :
+                                break
+                            self .wfile .write (chunk )
+                            if resp .status ==200 and not is_oversized :
+                                if len (body_buffer )+len (chunk )<=15 *1024 *1024 :
+                                    body_buffer .extend (chunk )
+                                else :
+                                    is_oversized =True
+                                    body_buffer .clear ()
+                        if resp .status ==200 and not is_oversized and body_buffer :
+                            if expected_len is None or len (body_buffer )==expected_len :
+                                global_ts_cache .set (real_url ,bytes (body_buffer ),resp_headers_to_pass )
+                finally :
+                    conn .close ()
+            except (BrokenPipeError ,ConnectionResetError ):
+                pass
+            except Exception as e :
+                try :
+                    self .send_error (502 ,f'Upstream CDN error: {e }')
                 except Exception :
                     pass
-            urls_to_try = [real_url ] + bk_urls
-            resp_done = False
-            for _attempt_url in urls_to_try :
-                if resp_done :
-                    break
-                try :
-                    parts_url =urllib .parse .urlsplit (_attempt_url )
-                    host =parts_url .hostname
-                    if not host :
-                        self ._send (400 ,'invalid ts host\n',head_only =head_only )
-                        break
-                    is_https =(_attempt_url .startswith ('https'))
-                    port =parts_url .port or (443 if is_https else 80 )
-                    host_header =f'{host }:{parts_url .port }'if parts_url .port else host
-                    target =parts_url .path or '/'
-                    if parts_url .query :
-                        target +='?'+parts_url .query
-                    extra ={}
-                    range_header =self .headers .get ('Range')
-                    if range_header :
-                        extra ['Range']=header_value_clean (range_header )
-                    headers =_playback_request_headers (playback_headers ,extra )
-                    headers ['Host']=host_header
-                    if is_https :
-                        conn =http .client .HTTPSConnection (host ,port ,timeout =60 ,context =ssl .create_default_context ())
-                    else :
-                        conn =http .client .HTTPConnection (host ,port ,timeout =60 )
-                    try :
-                        req_method ='HEAD'if head_only else 'GET'
-                        conn .request (req_method ,target ,headers =headers )
-                        resp =conn .getresponse ()
-                        resp_headers_to_pass ={}
-                        for k ,v in resp .getheaders ():
-                            kl =k .lower ()
-                            if kl in ('content-type','content-range','accept-ranges','content-length'):
-                                resp_headers_to_pass [k ]=v
-                        self .send_response (resp .status )
-                        for k ,v in resp_headers_to_pass .items ():
-                            self .send_header (k ,v )
-                        self .send_header ('X-Cache','MISS-UPSTREAM' if _attempt_url == real_url else 'MISS-UPSTREAM-FALLBACK')
-                        self .send_header ('Access-Control-Allow-Origin','*')
-                        self .send_header ('Cache-Control','public, max-age=300')
-                        self .end_headers ()
-                        if not head_only :
-                            body_buffer =bytearray ()
-                            is_oversized =False
-                            expected_len =None
-                            cl_val =resp_headers_to_pass .get ('Content-Length')or resp_headers_to_pass .get ('content-length')
-                            if cl_val :
-                                try :
-                                    expected_len =int (cl_val )
-                                    if expected_len >15 *1024 *1024 :
-                                        is_oversized =True
-                                except ValueError :
-                                    pass
-                            while True :
-                                chunk =resp .read (262144 )
-                                if not chunk :
-                                    break
-                                self .wfile .write (chunk )
-                                if resp .status ==200 and not is_oversized :
-                                    if len (body_buffer )+len (chunk )<=15 *1024 *1024 :
-                                        body_buffer .extend (chunk )
-                                    else :
-                                        is_oversized =True
-                                        body_buffer .clear ()
-                            if resp .status ==200 and not is_oversized and body_buffer :
-                                if expected_len is None or len (body_buffer )==expected_len :
-                                    global_ts_cache .set (real_url ,bytes (body_buffer ),resp_headers_to_pass )
-                        resp_done = True
-                    except (BrokenPipeError ,ConnectionResetError ):
-                        if _attempt_url == urls_to_try[-1]: raise
-                        break
-                    except Exception :
-                        if _attempt_url == urls_to_try[-1]: raise
-                        break
-                    finally :
-                        conn .close ()
-                except (BrokenPipeError ,ConnectionResetError ):
-                    if _attempt_url == urls_to_try[-1]: raise
-                except Exception as e :
-                    if _attempt_url == urls_to_try[-1]:
-                        try :
-                            self .send_error (502 ,f'Upstream CDN error after retries: {e }')
-                        except Exception :
-                            pass
-                    continue
             return 
         if path =='/engine_proxy':
             qs =urllib .parse .parse_qs (parts .query )
