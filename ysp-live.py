@@ -2758,6 +2758,55 @@ def jce_refresh (ch ):
     if added :
         log ('%s +%d 片 (共%d)'%(ch .slug ,added ,len (ch .segments )))
     return True 
+def bk_accumulate (ch ,pl ):
+    segs ,dur ,pdt =([],6.0 ,'')
+    base_url =ch .bk_urls [0 ]if ch .bk_urls else ''
+    for line in pl .splitlines ():
+        line =line .strip ()
+        if line .startswith ('#EXTINF:'):
+            try :
+                dur =float (line [len ('#EXTINF:'):].split (',')[0 ])
+            except ValueError :
+                dur =6.0 
+        elif line .startswith ('#EXT-X-PROGRAM-DATE-TIME:'):
+            pdt =line [len ('#EXT-X-PROGRAM-DATE-TIME:'):]
+        elif line and (not line .startswith ('#')):
+            abs_url =urllib .parse .urljoin (base_url ,line )if base_url else line 
+            segs .append ((dur ,pdt ,abs_url ))
+            pdt =''
+    if not segs :
+        raise RuntimeError ('empty playlist')
+    with ch .lock :
+        added =0 
+        if not ch .order :
+            for dur ,pdt ,url in segs :
+                key =seg_key (url ,pdt )
+                ch .seq +=1 
+                ch .segments [key ]=[ch .seq ,dur ,pdt ,url ]
+                ch .order .append (key )
+                added +=1 
+                if pdt :
+                    ch .last_pdt =pdt 
+        else :
+            for dur ,pdt ,url in segs :
+                if pdt and ch .last_pdt and pdt <=ch .last_pdt :
+                    continue 
+                key =seg_key (url ,pdt )
+                if key in ch .segments :
+                    ch .segments [key ][3 ]=url 
+                    continue 
+                ch .seq +=1 
+                ch .segments [key ]=[ch .seq ,dur ,pdt ,url ]
+                ch .order .append (key )
+                if pdt :
+                    ch .last_pdt =pdt 
+                added +=1 
+        while len (ch .order )>MAX_SEGS :
+            ch .segments .pop (ch .order .popleft (),None )
+        ch .last_error =''
+    if added :
+        log ('%s +%d 片 (共%d)'%(ch .slug ,added ,len (ch .segments )))
+    return True 
 def bk_refresh (ch ):
     global_flow_limiter .wait_slot ()
     now =time .time ()
@@ -2772,6 +2821,9 @@ def bk_refresh (ch ):
                 pl =fetch_abs_playlist (u )
                 if '#EXTM3U'not in pl :
                     continue 
+                if ch .slug =='cctv6':
+                    bk_accumulate (ch ,pl )
+                    return True 
                 with ch .lock :
                     ch .bk_playlist =pl 
                     ch .last_error =''
@@ -2850,7 +2902,7 @@ def ensure_channel (ch ):
             ch ._starting =False 
 def build_playlist (ch ,holdback :bool =True ):
     with ch .lock :
-        if ch .mode =='bk':
+        if ch .mode =='bk' and ch .slug != 'cctv6':
             res =ch .bk_playlist or None 
             if res :
                 ch .last_built_playlist =res 
