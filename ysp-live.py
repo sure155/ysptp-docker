@@ -1587,7 +1587,7 @@ class Resolver :
             if not 200 <=resp .status <300 :
                 raise YsptpError (f'version config HTTP {http_status_text (resp .status ,resp .reason )}')
     def resolve_channel_once (self ,sess :AppSession ,channel :str ,live_id :str ,generation :int )->ChannelEntry :
-        live01 =self .live_v1_01_flow (sess ,live_id )
+        live01 =self .live_v1_01_flow (sess ,live_id ,channel )
         app_secret =self .live_v1_02_flow (sess )
         vdn =self .vdn_getstream_flow (sess .identity ,sess .version ,live01 .live_url ,app_secret )
         now =now_f64 ()
@@ -1596,7 +1596,7 @@ class Resolver :
         playback_headers ['APPSIGN']=vdn .app_sign 
         sess .linked_channels .add (channel )
         return ChannelEntry (channel =channel ,live_id =live_id ,final_url =vdn .final_url ,playback_headers =playback_headers ,android_id =sess .profile .android_id ,x_uid =sess .identity .x_uid ,rate =live01 .rate ,rate_name =live01 .rate_name ,raw_live_host =url_host (live01 .live_url ),final_host =url_host (vdn .final_url ),refreshed_at =now ,expires_at =now +float (self .args .cache_ttl ),generation =generation ,last_refresh_error ='',last_refresh_failed_at =0.0 ,session_generation =sess .generation )
-    def live_v1_01_flow (self ,sess :AppSession ,live_id :str )->Live01Result :
+    def live_v1_01_flow (self ,sess :AppSession ,live_id :str ,channel :str )->Live01Result :
         body ={'screenParam':sess .screen_param ,'rate':'','systemType':'ios','model':sess .cast_model ,'id':live_id ,'userId':DEFAULT_LIVE_USER_ID ,'clientSign':'cctvVideo','deviceId':{'serial':'','imei':'','android_id':''}}
         with self .control_request_slot ('live_v1_01'):
             resp =sess .client .post_json (LIVE_V1_01_URL ,fresh_headers (sess .identity .headers ,'application/json','application/json',None ),body )
